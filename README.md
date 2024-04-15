@@ -4,7 +4,7 @@
 
 This app allows you to chat with any website.
 
-<img src="https://s9.gifyu.com/images/SVJIG.gif" alt="app demo" width=600 />
+<img src="./screenshot.jpg" alt="app demo" width=600 />
 
 The app is built with Next.js. It uses Puppeteer to scrape the website and the Claude 3 Haiku for the AI model to chat with the site.
 
