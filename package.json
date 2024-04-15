@@ -1,40 +1,117 @@
-{
-  "name": "codebender-ai-nextjs",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.4",
-    "@clerk/nextjs": "^4.29.12",
-    "@clerk/themes": "^1.7.12",
-    "@tailwindcss/typography": "^0.5.10",
-    "@types/node": "20.12.7",
-    "@types/puppeteer": "^7.0.4",
-    "@types/react": "18.2.58",
-    "@types/react-dom": "18.2.7",
-    "@types/react-syntax-highlighter": "^15.5.11",
-    "@vercel/analytics": "^1.2.2",
-    "ai": "^3.0.22",
-    "autoprefixer": "^10.4.17",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "^14.2.1",
-    "next": "^14.2.1",
-    "openai": "^4.33.0",
-    "postcss": "^8.4.35",
-    "puppeteer": "^22.6.4",
-    "react": "18.2.0",
-    "react-chat-plugin": "^0.1.17",
-    "react-dom": "18.2.0",
-    "react-markdown": "^8.0.7",
-    "react-syntax-highlighter": "^15.5.0",
-    "remark-gfm": "^3.0.1",
-    "remark-math": "^5.1.1",
-    "tailwindcss": "^3.4.1",
-    "typescript": "5.4.4"
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { Browser } from 'puppeteer-core';
+
+let chromium: any;
+let puppeteer: any;
+
+if (process.env.NODE_ENV === 'production') {
+  chromium = require('chrome-aws-lambda');
+  puppeteer = require('puppeteer-core');
+} else {
+  puppeteer = require('puppeteer');
+}
+
+type RequestBody = {
+  url: string;
+};
+
+export async function POST(req: NextRequest) {
+  const body: RequestBody = await req.json();
+  const { url } = body;
+
+  if (!url) {
+    return new NextResponse(JSON.stringify({ error: 'URL is required' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  try {
+    const textContent = await scrapeAllTextWithPuppeteer(url);
+
+    if (textContent) {
+      return new NextResponse(JSON.stringify({ textContent }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } else {
+      return new NextResponse(JSON.stringify({ error: 'Failed to scrape the text content' }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  } catch (error) {
+    return new NextResponse(JSON.stringify({ error: 'An error occurred during scraping' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
+
+async function scrapeAllTextWithPuppeteer(url: string): Promise<string | null> {
+  let browser: Browser | null = null;
+
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      const executablePath = await chromium.executablePath;
+
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath,
+        headless: chromium.headless,
+      });
+    } else {
+      browser = await puppeteer.launch({ headless: true });
+    }
+
+    const page = await browser!.newPage();
+
+    try {
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    } catch (error) {
+      console.error('Navigation error:', error);
+      throw error;
+    }
+    
+    const textContent = await page.evaluate(() => {
+      const articleElement = document.querySelector('article');
+      const mainElement = document.querySelector('main');
+      const contentElement = articleElement || mainElement || document.body;
+
+      let text = contentElement.innerText;
+
+      // Remove headers, footers, and navigation elements
+      const elementsToRemove = ['header', 'footer', 'nav'];
+      elementsToRemove.forEach((selector) => {
+        const elements = contentElement.querySelectorAll(selector);
+        elements.forEach((element) => element.remove());
+      });
+
+      // Limit the text to the first 2000 words
+      const words = text.trim().split(/\s+/);
+      const limitedWords = words.slice(0, 2000);
+      const limitedText = limitedWords.join(' ');
+
+      return limitedText;
+    });
+
+    const cleanedText = textContent.replace(/\s+/g, ' ').trim();
+
+    return cleanedText;
+  } catch (error) {
+    console.error('Error scraping with Puppeteer:', error);
+    return null;
+  } finally {
+    await browser?.close();
   }
 }

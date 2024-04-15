@@ -1,7 +1,16 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
-import type { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer-core';
+
+let chromium: any;
+let puppeteer: any;
+
+if (process.env.NODE_ENV === 'production') {
+  chromium = require('chrome-aws-lambda');
+  puppeteer = require('puppeteer-core');
+} else {
+  puppeteer = require('puppeteer');
+}
 
 type RequestBody = {
   url: string;
@@ -52,8 +61,20 @@ async function scrapeAllTextWithPuppeteer(url: string): Promise<string | null> {
   let browser: Browser | null = null;
 
   try {
-    browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    if (process.env.NODE_ENV === 'production') {
+      const executablePath = await chromium.executablePath;
+
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath,
+        headless: chromium.headless,
+      });
+    } else {
+      browser = await puppeteer.launch({ headless: true });
+    }
+
+    const page = await browser!.newPage();
 
     try {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
