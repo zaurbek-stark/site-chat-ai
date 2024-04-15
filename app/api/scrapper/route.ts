@@ -1,16 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Browser } from 'puppeteer-core';
-
-let chromium: any;
-let puppeteer: any;
-
-if (process.env.NODE_ENV === 'production') {
-  chromium = require('chrome-aws-lambda');
-  puppeteer = require('puppeteer-core');
-} else {
-  puppeteer = require('puppeteer');
-}
+import puppeteer from 'puppeteer-core';
+import chromePaths from 'chrome-paths';
 
 type RequestBody = {
   url: string;
@@ -61,20 +53,19 @@ async function scrapeAllTextWithPuppeteer(url: string): Promise<string | null> {
   let browser: Browser | null = null;
 
   try {
-    if (process.env.NODE_ENV === 'production') {
-      const executablePath = await chromium.executablePath;
+    const options = process.env.NODE_ENV === 'production'
+      ? {
+          executablePath: '/usr/bin/chromium-browser',
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        }
+      : {
+          executablePath: chromePaths.chrome,
+          headless: true,
+        };
 
-      browser = await puppeteer.launch({
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath,
-        headless: chromium.headless,
-      });
-    } else {
-      browser = await puppeteer.launch({ headless: true });
-    }
+    browser = await puppeteer.launch(options);
 
-    const page = await browser!.newPage();
+    const page = await browser.newPage();
 
     try {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });

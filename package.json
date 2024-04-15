@@ -21,7 +21,7 @@
     "@vercel/analytics": "^1.2.2",
     "ai": "^3.0.22",
     "autoprefixer": "^10.4.17",
-    "chrome-aws-lambda": "^10.1.0",
+    "chrome-paths": "^1.0.1",
     "eslint": "^9.0.0",
     "eslint-config-next": "^14.2.1",
     "next": "^14.2.1",
