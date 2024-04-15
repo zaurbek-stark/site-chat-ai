@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Browser } from 'puppeteer-core';
-import puppeteer from 'puppeteer-core';
-import chromePaths from 'chrome-paths';
+import type { Browser } from 'puppeteer';
+import puppeteer from 'puppeteer';
 
 type RequestBody = {
   url: string;
@@ -53,15 +52,10 @@ async function scrapeAllTextWithPuppeteer(url: string): Promise<string | null> {
   let browser: Browser | null = null;
 
   try {
-    const options = process.env.NODE_ENV === 'production'
-      ? {
-          executablePath: '/usr/bin/chromium-browser',
-          args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        }
-      : {
-          executablePath: chromePaths.chrome,
-          headless: true,
-        };
+    const options = {
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: true
+    };
 
     browser = await puppeteer.launch(options);
 
