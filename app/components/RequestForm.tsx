@@ -23,44 +23,9 @@ const RequestForm: React.FC<Props> = ({ setSiteContent, setIsLoading, isLoading 
       },
       body: JSON.stringify({ url }),
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to scrape the site');
-    }
-
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let fullContent = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      fullContent += chunk;
-
-      // Check if the chunk contains a complete JSON object
-      const lines = fullContent.split('\n');
-      for (let i = 0; i < lines.length - 1; i++) {
-        try {
-          const data = JSON.parse(lines[i]);
-          if (data.status === 'processing') {
-            // Update the loading state or show a progress indicator
-            console.log('Processing...');
-          } else if (data.textContent) {
-            const textContent = processHtmlContent(data.textContent);
-            setSiteContent({ content: textContent, url });
-          } else if (data.error) {
-            throw new Error(data.error);
-          }
-        } catch (error) {
-          // Ignore JSON parsing errors and continue reading the stream
-        }
-      }
-
-      // Keep the remaining incomplete chunk for the next iteration
-      fullContent = lines[lines.length - 1];
-    }
+    const responseData = await response.json();
+    const textContent = processHtmlContent(responseData.textContent);
+    setSiteContent({content: textContent, url});
   };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
