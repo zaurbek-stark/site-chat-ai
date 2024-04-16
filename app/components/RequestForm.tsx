@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { SiteContent } from '../types/SiteContent';
+import { processHtmlContent } from '../utils/processHtmlContent';
 
 type Props = {
   setSiteContent: React.Dispatch<React.SetStateAction<SiteContent>>;
@@ -23,7 +24,8 @@ const RequestForm: React.FC<Props> = ({ setSiteContent, setIsLoading, isLoading 
       body: JSON.stringify({ url }),
     });
     const responseData = await response.json();
-    setSiteContent({content: responseData.textContent, url});
+    const textContent = processHtmlContent(responseData.textContent);
+    setSiteContent({content: textContent, url});
   };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

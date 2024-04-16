@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   const scrapingAntApiKey = process.env.SCRAPINGANT_API_KEY;
-  const apiEndpoint = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(url)}&x-api-key=${scrapingAntApiKey}`;
+  const apiEndpoint = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(url)}&x-api-key=${scrapingAntApiKey}&browser=true&return_page_soure=true&block_resource=stylesheet&block_resource=image&block_resource=media&block_resource=font&block_resource=texttrack&block_resource=xhr&block_resource=fetch&block_resource=eventsource&block_resource=websocket&block_resource=manifest&block_resource=manifest`;
 
   try {
     const response = await fetch(apiEndpoint);
@@ -31,9 +31,7 @@ export async function POST(req: NextRequest) {
 
     const htmlContent = await response.text();
 
-    const textContent = processHtmlContent(htmlContent);
-
-    return new NextResponse(JSON.stringify({ textContent }), {
+    return new NextResponse(JSON.stringify({ textContent: htmlContent }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -47,43 +45,6 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  }
-}
-
-function processHtmlContent(html: string): string {
-  try {
-    // Safely remove script and style elements
-    html = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '');
-    html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '');
-
-    // Remove headers, footers, and navigation elements
-    html = html.replace(/<header[^>]*>([\s\S]*?)<\/header>/gi, '');
-    html = html.replace(/<footer[^>]*>([\s\S]*?)<\/footer>/gi, '');
-    html = html.replace(/<nav[^>]*>([\s\S]*?)<\/nav>/gi, '');
-
-    // Attempt to extract main content areas
-    let contentMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
-                        html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
-                        html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-
-    let content = contentMatch ? contentMatch[1] : html; // Fallback to full HTML if specific tags not found
-
-    // Strip all remaining HTML tags to get clean text
-    content = content.replace(/<[^>]+>/g, '');
-
-    // Normalize spaces and clean up the text
-    content = content.replace(/\s\s+/g, ' ').trim();
-
-    // Limit the text to the first 2000 words to prevent excessive processing
-    const words = content.split(/\s+/);
-    const limitedWords = words.slice(0, 2000);
-    const limitedText = limitedWords.join(' ');
-
-    return limitedText;
-  } catch (error) {
-    // Log error and return a default message or empty string to prevent app crash
-    console.error('Error processing HTML content:', error);
-    return '';  // Or return a default fallback text if preferred
   }
 }
 
