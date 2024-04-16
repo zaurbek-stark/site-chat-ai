@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
 import cheerio from 'cheerio';
 
 export const runtime = 'edge';
@@ -34,7 +33,6 @@ export async function POST(req: NextRequest) {
     const htmlContent = await response.text();
 
     const textContent = processHtmlContent(htmlContent);
-    console.log('textContent:', textContent);
 
     return new NextResponse(JSON.stringify({ textContent }), {
       status: 200,
@@ -54,27 +52,39 @@ export async function POST(req: NextRequest) {
 }
 
 function processHtmlContent(html: string): string {
-  const $ = cheerio.load(html);
+  try {
+    // Safely remove script and style elements
+    html = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '');
+    html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '');
 
-  $('script, style').remove();
+    // Remove headers, footers, and navigation elements
+    html = html.replace(/<header[^>]*>([\s\S]*?)<\/header>/gi, '');
+    html = html.replace(/<footer[^>]*>([\s\S]*?)<\/footer>/gi, '');
+    html = html.replace(/<nav[^>]*>([\s\S]*?)<\/nav>/gi, '');
 
-  const articleElement = $('article');
-  const mainElement = $('main');
-  const contentElement = articleElement.length > 0 ? articleElement : (mainElement.length > 0 ? mainElement : $('body'));
+    // Attempt to extract main content areas
+    let contentMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+                        html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
+                        html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
 
-  ['header', 'footer', 'nav'].forEach(selector => {
-    contentElement.find(selector).remove();
-  });
+    let content = contentMatch ? contentMatch[1] : html; // Fallback to full HTML if specific tags not found
 
-  let text = contentElement.text();
+    // Strip all remaining HTML tags to get clean text
+    content = content.replace(/<[^>]+>/g, '');
 
-  // Normalize spaces and remove any remaining inline CSS or scripts that might have been missed
-  text = text.replace(/\s\s+/g, ' ').trim();
+    // Normalize spaces and clean up the text
+    content = content.replace(/\s\s+/g, ' ').trim();
 
-  // Limit the text to the first 2000 words
-  const words = text.split(/\s+/);
-  const limitedWords = words.slice(0, 2000);
-  const limitedText = limitedWords.join(' ');
+    // Limit the text to the first 2000 words to prevent excessive processing
+    const words = content.split(/\s+/);
+    const limitedWords = words.slice(0, 2000);
+    const limitedText = limitedWords.join(' ');
 
-  return limitedText;
+    return limitedText;
+  } catch (error) {
+    // Log error and return a default message or empty string to prevent app crash
+    console.error('Error processing HTML content:', error);
+    return '';  // Or return a default fallback text if preferred
+  }
 }
+
