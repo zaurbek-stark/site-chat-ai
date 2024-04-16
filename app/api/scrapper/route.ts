@@ -3,10 +3,7 @@ import { NextResponse } from 'next/server';
 import fetch from 'node-fetch';
 import cheerio from 'cheerio';
 
-interface ScrapingAntResponse {
-  content?: string;
-  error?: string;
-}
+export const runtime = 'edge';
 
 type RequestBody = {
   url: string;
